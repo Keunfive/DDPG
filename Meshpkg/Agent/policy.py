@@ -24,3 +24,15 @@ def epsilon_greedy_policy(Q_, epsilon):
         action = tf.cast(tf.argmax(Q_, axis=1), tf.int32)
         return action
 
+def DDPG_policy(state, actor_model, noise_input = None):
+    
+    state_new = tf.convert_to_tensor(get_state.get_new_state_2(np.array(state))) # (34, 19)
+
+    if (noise_input is None):
+        noise = 0
+    else:
+        noise = noise_input
+    
+    actions = np.array(actor_model(state_new)) + noise
+    
+    return actions

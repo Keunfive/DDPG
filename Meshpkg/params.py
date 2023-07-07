@@ -11,7 +11,7 @@ mesh_name = 'spline_1_1'
 
 surf_mesh = get_surf_mesh(mesh_name)
 surf_length = len(surf_mesh)
-first_layer = 0.005
+first_layer = 0.05
 growth_rate = 1.1
 num_layer = 30
 
@@ -34,8 +34,7 @@ num_iter =5
 """
 [Action 정의]
 """
-action_space = get_action_type(2)
-n_actions = len(action_space)
+n_actions = 2
 
 """
 [DQN 관련]
@@ -43,33 +42,45 @@ Target Q계산시 할인율
 """
 discount_rate = 0.999
 # 몇 episode마다 target model update할 건지
-episode_target = 5
+episode_target = 2
 # target model update 시 (tau)만큼 online model에서, (1 - tau)만큼 target model에서
 tau = 0.005
 """
 [Replay memory 관련]
 Buffer/Batch size
 """
-buffer_size = 100
-batch_size = 10
+buffer_size = 5000
+batch_size = 128
 
 """
 [Policy 관련]
 Policy 선택: Epsilon greedy = 0, Softmax = 1
 """
-policy = 0
+# policy = 0
+
 "Softmax policy temperature"
 temp = 1
-"epsilon greedy policy parameters: 0.01 도달까지  0.999일경우 (4605 episode), 0.99일 경우 (459 episode)"
-epsilon_start = 0.99
-epsilon_min = 0.01
 
+"epsilon greedy policy parameters: 0.01 도달까지  0.999일경우 (4605 episode), 0.99일 경우 (459 episode)"
+# epsilon_start = 0.99
+# epsilon_min = 0.01
+
+"""
+DDPG Actor model의 action 선택 policy 첨가 noise
+"""
+std_dev = 1
 """
 [Neural network model training 관련]
 """
-loss_fn = keras.losses.mean_squared_error
-learning_rate = 0.0005
-optimizer = keras.optimizers.Adam(learning_rate = learning_rate)
+
+actor_loss_fn = keras.losses.mean_squared_error
+actor_learning_rate = 0.0005
+actor_optimizer = keras.optimizers.Adam(learning_rate = actor_learning_rate)
+
+critic_loss_fn = keras.losses.mean_squared_error
+critic_learning_rate = 0.0005
+critic_optimizer = keras.optimizers.Adam(learning_rate = critic_learning_rate)
+
 hidden_node = 128
 
 """
@@ -77,3 +88,4 @@ hidden_node = 128
 colormap 정의
 """
 colormap = ['black','blue','red','purple','turquoise']
+

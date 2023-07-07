@@ -3,7 +3,10 @@ import math
 
 import Meshpkg.params as p
 from Meshpkg.Env.Reward import get_reward
-from Meshpkg.Calculation.checkcross import check_cross
+
+from Meshpkg.Calculation.checkcross import check_cross_1
+from Meshpkg.Calculation.checkcross import check_cross_2
+
 from Meshpkg.Calculation import angle
 from Meshpkg.Env.State import layer_to_state
 
@@ -24,7 +27,7 @@ class step_class:
 
   def step_func(self, action, step, episode = None):
 
-      def step_in_layer (i, action_index):
+      def step_in_layer (i, action):
           state = layer_to_state(self.volume_mesh[-1])[i]
           theta_2 = angle.get_angle2(state[self.num_neighbor+1], state[self.num_neighbor])
           theta_1 = angle.get_angle2(state[self.num_neighbor-1], state[self.num_neighbor])
@@ -33,17 +36,17 @@ class step_class:
             theta_2 += 360
             
           # txt_file.write(f'{action_index}-{len(p.action_space)} ')
-          action_step = p.action_space[action_index]
 
-
-          delta_margin = (theta_2 - theta_1)/(4) #4 등분
-          delta_theta = (delta_margin * 2)/(5+1) # 4등분한거 중앙 두개 사이에서 6등분한 것 중 하나의 각도.
+          delta_margin = (theta_2 - theta_1)/(4) # 4 등분
+          # delta_theta = (delta_margin * 2)/(5+1) # 4등분한거 중앙 두개 사이에서 6등분한 것 중 하나의 각도.
+          action_len = action[0]
+          action_angle = action[1]
           
           ## 변경 부분 ##
           x = state[self.num_neighbor][0] + self.first_layer * pow(self.growth_rate, self.cur_layer) * (
-            0.25 + 0.25*action_step[0]) * math.cos(math.radians(theta_1 + delta_margin + delta_theta*action_step[1]))
+            1 + 0.5*action_len) * math.cos(math.radians(theta_1 + 2*delta_margin + action_angle*delta_margin))
           y = state[self.num_neighbor][1] + self.first_layer * pow(self.growth_rate, self.cur_layer) * (
-            0.25 + 0.25*action_step[0]) * math.sin(math.radians(theta_1 + delta_margin + delta_theta*action_step[1]))
+            1 + 0.5*action_len) * math.sin(math.radians(theta_1 + 2*delta_margin + action_angle*delta_margin))
           ##          ##
           next_point = [x,y]
           return next_point
@@ -59,7 +62,7 @@ class step_class:
       self.volume_mesh.append(np.array(next_layer))
       next_state = layer_to_state(next_layer)
       r = get_reward(self.volume_mesh)
-      reward = 10 * (0.5 * r.get_skew() + 0.2 *r.get_length_ratio()+ 0.3 *r.get_jacobian()[0])
+      reward = 10 * ((0.5 * r.get_skew() + 0.2 *r.get_length_ratio()+ 0.3 *r.get_jacobian()[0])) ** 2
       
 
       txt_file = open("reward_record.txt", 'a')
@@ -78,14 +81,27 @@ class step_class:
 
         if (any(r.get_jacobian()[1][i]) < 0) or (r.get_skew()[i] < 0):
           info.add(i)
-      is_crossed, crossed_pt = check_cross(self.volume_mesh[-1])
-      info = info.union(crossed_pt)
+          
+      is_crossed_1, crossed_pt_1 = check_cross_1(self.volume_mesh[-1])
+      is_crossed_2, crossed_pt_2 = check_cross_2(self.volume_mesh[-1], self.volume_mesh[-2])
+      
+      info = info.union(crossed_pt_1)
+      info = info.union(crossed_pt_2)
+      
       self.cur_layer += 1
 
       if self.cur_layer == self.max_layer:
         dones = np.ones(self.length)
       elif len(info) != 0:
         dones = np.ones(self.length)
+        
+        txt_file = open("cross_record.txt", 'a')
+        txt_file.write(f'\n\n ----------crossed points report: episode: {episode}---------- \n\n')
+        txt_file.write(f'list_1 {crossed_pt_1}\n')
+        txt_file.write(f'list_2 {crossed_pt_2}\n\n')
+        txt_file.write(f'info_{info}')
+        txt_file.close()
+        
       else:
         dones = np.zeros(self.length) 
 

@@ -74,7 +74,6 @@ def training_step_mean_DDQN(model, model_target, replay_memory, episode):
     p.optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
 
-
 """ 
 점(Agent) 한개씩 신경망 Weight update 하는 함수 [Double DQN] 
 """
@@ -158,3 +157,47 @@ def training_step_each_DDQN(model, model_target, replay_memory, episode):
 
     loss_file.close()
 
+def training_step_mean_DDPG(actor_model, actor_target, critic_model, critic_target, replay_memory, episode):
+    
+    "replay memory에서 batch를 random sampling"
+    indices = np.random.randint(len(replay_memory), size = p.batch_size) # 
+    batch = [replay_memory[index] for index in indices]
+    state, action, reward, next_state, done, step = [ [experience[field_index] for experience in batch] for field_index in range(6)]
+    
+    "list size 조정: (batch_size, length ) -> (batch_size*length, )"
+    list_flatten = lambda x, opt = "np": np.array(list(itertools.chain(*x))) if opt=="np" else list(itertools.chain(*x))
+    state, action, reward, next_state, done = list_flatten(state), list_flatten(action, opt="list"), list_flatten(reward), list_flatten(next_state), list_flatten(done)
+
+    "state normalization"
+    state_new = tf.convert_to_tensor(get_state.get_new_state_2(state))
+    
+    "action convert to tensor"
+    action = tf.convert_to_tensor(action)
+    
+    "next state normalization"
+    next_state_new = tf.convert_to_tensor(get_state.get_new_state_2(next_state))
+    
+    # print(f'state_new: {np.shape(np.array(state_new))}')
+    # print(f'action: {np.shape(np.array(action))}')
+    # print(f'next_state_new: {np.shape(np.array(next_state_new))}')
+    
+    # Critic model Training
+    with tf.GradientTape() as tape:
+        target_actions = actor_target(next_state_new, training = True)
+        y = reward + p.discount_rate * critic_target(
+            [next_state_new, target_actions], training = True )
+        
+        critic_value = critic_model([state_new, action], training = True) #여기 들어가는 action 형태가 문제이다.
+        critic_loss = tf.reduce_mean(p.critic_loss_fn(y, critic_value))
+
+    critic_grads = tape.gradient(critic_loss, critic_model.trainable_variables)
+    p.critic_optimizer.apply_gradients(zip(critic_grads, critic_model.trainable_variables))
+    
+    # Actor model Training
+    with tf.GradientTape() as tape:
+        pred_actions = actor_model(state_new, training = True)
+        critic_value = critic_model([state_new, pred_actions], training = True)
+        actor_loss = - tf.reduce_mean(critic_value)
+        
+    actor_grads = tape.gradient(actor_loss, actor_model.trainable_variables)
+    p.actor_optimizer.apply_gradients( zip(actor_grads, actor_model.trainable_variables) )
